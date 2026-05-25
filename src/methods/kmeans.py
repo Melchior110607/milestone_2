@@ -140,8 +140,8 @@ class KMeans(object):
         Returns:
             new_labels: array of shape (N,), the labels assigned to each data point after clustering, via k-means.
         """
-
-        ### WRITE YOUR CODE HERE
+        _, cluster_assignments = self.k_means(data) #first get points assigned to their closest cluster, size (N,)
+        cluster_center_label[cluster_assignments] #does [cluster_center_label[cluster_assignment[0]], cluster_center_label[cluster_assignment[1]] etc
 
     def fit(self, training_data, training_labels):
         """
@@ -156,7 +156,8 @@ class KMeans(object):
         Returns:
             pred_labels (array): labels of shape (N,)
         """
-        ### WRITE YOUR CODE HERE
+        centers, cluster_assignments = self.k_means(training_data)
+        
 
     def predict(self, test_data):
         """
