@@ -124,7 +124,7 @@ class KMeans(object):
         cluster_center_label = np.zeros(self.K, dtype=int)
         for k in range(self.K):
             labels_in_cluster = true_labels[cluster_assignments == k]
-            cluster_center_label[k] = np.bincount(labels_in_cluster).argmax()
+            cluster_center_label[k] = np.bincount(labels_in_cluster.astype(int)).argmax()
         return cluster_center_label
 
     def predict_with_centers(self, data, centers, cluster_center_label):

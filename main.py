@@ -42,7 +42,10 @@ def main(args):
         ### WRITE YOUR CODE HERE
         pass
 
-    ### WRITE YOUR CODE HERE to do any other data processing
+    means = np.mean(train_features, axis=0, keepdims=True)
+    stds = np.std(train_features, axis=0, keepdims=True)
+    train_features = normalize_fn(train_features, means, stds)
+    test_features = normalize_fn(test_features, means, stds)
 
     ## 3. Initialize the method you want to use.
 
@@ -51,8 +54,7 @@ def main(args):
         method_obj = DummyClassifier(arg1=1, arg2=2)
 
     elif args.method == "kmeans":
-        ### WRITE YOUR CODE HERE
-        pass
+        method_obj = KMeans(K=args.K, max_iters=args.max_iters)
 
     elif args.method == "mlp":
         ### WRITE YOUR CODE HERE
@@ -63,9 +65,13 @@ def main(args):
     ## 4. Train and evaluate the method
 
     if args.task == "classification":
+        pred_labels = method_obj.fit(train_features, train_labels_classif)
+        print(f"Train accuracy: {accuracy_fn(pred_labels, train_labels_classif):.2f}%")
+        print(f"Train macro F1: {macrof1_fn(pred_labels, train_labels_classif):.2f}")
 
-        ### WRITE YOUR CODE HERE
-        pass
+        pred_labels_test = method_obj.predict(test_features)
+        print(f"Test accuracy:  {accuracy_fn(pred_labels_test, test_labels_classif):.2f}%")
+        print(f"Test macro F1:  {macrof1_fn(pred_labels_test, test_labels_classif):.2f}")
 
     elif args.task == "regression":
         assert args.method != "kmeans", f"You should use kmeans as a classification method"
