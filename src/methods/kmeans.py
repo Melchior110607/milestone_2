@@ -75,9 +75,12 @@ class KMeans(object):
             centers: the new centers of each cluster, shape is (K,D) where K is the number of clusters, D the number of features
         """
         centers = np.zeros((self.K, data.shape[1]))
-        for k in range(self.K) :
-            centers[k] = np.mean(data[cluster_assignments==k], axis=0) #for each cluster, filter with boolean mask of cluster_assignments to find the corresponding points, and make the mean of them.
-            #axis=0 to mean on the lines (points) not columns
+        for k in range(self.K):
+            cluster_data = data[cluster_assignments == k]
+            if cluster_data.shape[0] == 0:
+                centers[k] = data[np.random.choice(len(data))]
+            else:
+                centers[k] = np.mean(cluster_data, axis=0)
         return centers
 
 
@@ -157,7 +160,7 @@ class KMeans(object):
         Returns:
             pred_labels (array): labels of shape (N,)
         """
-        self.centers, cluster_assignments = self.k_means(training_data)
+        self.centers, cluster_assignments = self.k_means(training_data, max_iter=self.max_iters)
         self.cluster_center_label = self.assign_labels_to_centers(self.centers, cluster_assignments, training_labels)
         return self.predict_with_centers(training_data, self.centers, self.cluster_center_label)
 

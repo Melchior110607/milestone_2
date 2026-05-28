@@ -4,9 +4,9 @@ import numpy as np
 from src.methods.dummy_methods import DummyClassifier
 from src.methods.mlp import MLP
 from src.losses import MSE
-from src.activations import Sigmoid, ReLU
+from src.activations import ReLU, Sigmoid, Tanh, Linear
 from src.methods.kmeans import KMeans
-from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, mse_fn
+from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, mse_fn, label_to_onehot
 import os
 
 np.random.seed(100)
@@ -37,15 +37,31 @@ def main(args):
     ## 2. Then we must prepare it. This is where you can create a validation set,
     #  normalize, add bias, etc.
 
-    # Make a validation set (it can overwrite xtest, ytest)
+    # Create a validation set unless we want to evaluate on the held-out test split.
     if not args.test:
-        ### WRITE YOUR CODE HERE
-        pass
+        split_idx = int(0.85 * train_features.shape[0])
+
+        x_val = train_features[split_idx:]
+        y_val_classif = train_labels_classif[split_idx:]
+        y_val_reg = train_labels_reg[split_idx:]
+
+        train_features = train_features[:split_idx]
+        train_labels_classif = train_labels_classif[:split_idx]
+        train_labels_reg = train_labels_reg[:split_idx]
+
+        test_features = x_val
+        test_labels_classif = y_val_classif
+        test_labels_reg = y_val_reg
 
     means = np.mean(train_features, axis=0, keepdims=True)
     stds = np.std(train_features, axis=0, keepdims=True)
+    stds = np.where(stds == 0, 1, stds)
+
     train_features = normalize_fn(train_features, means, stds)
     test_features = normalize_fn(test_features, means, stds)
+
+    train_features = append_bias_term(train_features)
+    test_features = append_bias_term(test_features)
 
     ## 3. Initialize the method you want to use.
 
@@ -57,26 +73,83 @@ def main(args):
         method_obj = KMeans(K=args.K, max_iters=args.max_iters)
 
     elif args.method == "mlp":
-        ### WRITE YOUR CODE HERE
-        pass
+        activation_map = {
+            "relu": ReLU,
+            "sigmoid": Sigmoid,
+            "tanh": Tanh,
+            "linear": Linear,
+        }
+        hidden_activation = activation_map.get(args.activation.lower())
+        if hidden_activation is None:
+            raise ValueError(
+                f"Unknown activation '{args.activation}'. Choose from: {', '.join(activation_map)}"
+            )
+
+        hidden_units = tuple([args.hidden_units] * args.hidden_layers)
+        activation_list = tuple([hidden_activation] * args.hidden_layers) + (Linear,)
+
+        if args.task == "classification":
+            n_classes = int(np.max(train_labels_classif) + 1)
+            method_obj = MLP(
+                dimensions=(train_features.shape[1],) + hidden_units + (n_classes,),
+                activations=activation_list,
+            )
+        elif args.task == "regression":
+            method_obj = MLP(
+                dimensions=(train_features.shape[1],) + hidden_units + (1,),
+                activations=activation_list,
+            )
+        else:
+            raise ValueError(f"MLP does not support task: {args.task}")
     else:
         raise ValueError(f"Unknown method: {args.method}")
 
     ## 4. Train and evaluate the method
 
     if args.task == "classification":
-        pred_labels = method_obj.fit(train_features, train_labels_classif)
-        print(f"Train accuracy: {accuracy_fn(pred_labels, train_labels_classif):.2f}%")
-        print(f"Train macro F1: {macrof1_fn(pred_labels, train_labels_classif):.2f}")
+        if args.method == "mlp":
+            train_targets = label_to_onehot(train_labels_classif)
+            train_predictions = method_obj.fit(
+                train_features,
+                train_targets,
+                loss=MSE,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                learning_rate=args.lr,
+            )
+            train_predictions = np.argmax(train_predictions, axis=1)
+        else:
+            train_predictions = method_obj.fit(train_features, train_labels_classif)
 
-        pred_labels_test = method_obj.predict(test_features)
-        print(f"Test accuracy:  {accuracy_fn(pred_labels_test, test_labels_classif):.2f}%")
-        print(f"Test macro F1:  {macrof1_fn(pred_labels_test, test_labels_classif):.2f}")
+        print(f"Train accuracy: {accuracy_fn(train_predictions, train_labels_classif):.2f}%")
+        print(f"Train macro F1: {macrof1_fn(train_predictions, train_labels_classif):.2f}")
+
+        test_predictions = method_obj.predict(test_features)
+        if isinstance(test_predictions, np.ndarray) and test_predictions.ndim > 1:
+            test_predictions = np.argmax(test_predictions, axis=1)
+
+        print(f"Test accuracy:  {accuracy_fn(test_predictions, test_labels_classif):.2f}%")
+        print(f"Test macro F1:  {macrof1_fn(test_predictions, test_labels_classif):.2f}")
 
     elif args.task == "regression":
-        assert args.method != "kmeans", f"You should use kmeans as a classification method"
+        if args.method != "mlp":
+            raise ValueError("Regression is only supported with --method mlp for this project setup")
 
-        ### WRITE YOUR CODE HERE
+        train_targets = train_labels_reg.reshape(-1, 1)
+        pred_values = method_obj.fit(
+            train_features,
+            train_targets,
+            loss=MSE,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            learning_rate=args.lr,
+        )
+        pred_values = np.ravel(pred_values)
+        print(f"Train MSE: {mse_fn(pred_values, train_labels_reg):.6f}")
+
+        pred_values_test = method_obj.predict(test_features)
+        pred_values_test = np.ravel(pred_values_test)
+        print(f"Test MSE:  {mse_fn(pred_values_test, test_labels_reg):.6f}")
 
     ### WRITE YOUR CODE HERE if you want to add other outputs, visualization, etc.
 
@@ -126,6 +199,39 @@ if __name__ == "__main__":
              "otherwise use a validation set",
     )
     # Feel free to add more arguments here if you need!
+
+    # Arguments for the MLP
+    parser.add_argument(
+        "--hidden_units",
+        type=int,
+        default=64,
+        help="number of units in each hidden layer for the MLP",
+    )
+    parser.add_argument(
+        "--hidden_layers",
+        type=int,
+        default=1,
+        help="number of hidden layers in the MLP",
+    )
+    parser.add_argument(
+        "--activation",
+        type=str,
+        default="relu",
+        choices=["relu", "sigmoid", "tanh", "linear"],
+        help="activation function for the MLP hidden layers",
+    )
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=5000,
+        help="number of training epochs for the MLP",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=20,
+        help="batch size for MLP training",
+    )
 
     args = parser.parse_args()
     main(args)

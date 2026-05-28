@@ -55,5 +55,5 @@ class CrossEntropy:
         """
         y_pred = np.clip(y_pred, 1e-12, 1.0 - 1e-12)
         N = y_true.shape[0]
-        return -(y_true / y_pred) / N
+        return (y_pred - y_true) / N
 
