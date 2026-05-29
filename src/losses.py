@@ -30,30 +30,40 @@ class MSE:
 
 class CrossEntropy:
     @staticmethod
+    def _softmax(z):
+        """
+        Apply the softmax function to logits.
+        """
+        z = z - np.max(z, axis=1, keepdims=True)
+        exp_z = np.exp(z)
+        return exp_z / np.sum(exp_z, axis=1, keepdims=True)
+
+    @staticmethod
     def loss(y_true, y_pred):
         """
         computes Cross-Entropy loss
         arguments:
             y_true (np.array): one-hot encoded truth, shape (N, C)
-            y_pred (np.array): predicted probabilities (after softmax), shape (N, C)
+            y_pred (np.array): predicted logits, shape (N, C)
         return:
             (float): scalar cross-entropy loss
         """
-        y_pred = np.clip(y_pred, 1e-12, 1.0 - 1e-12)
+        y_prob = CrossEntropy._softmax(y_pred)
+        y_prob = np.clip(y_prob, 1e-12, 1.0 - 1e-12)
         N = y_true.shape[0]
-        return -np.sum(y_true * np.log(y_pred)) / N
+        return -np.sum(y_true * np.log(y_prob)) / N
 
     @staticmethod
     def gradient(y_true, y_pred):
         """
-        computes gradient of Cross-Entropy loss
+        computes gradient of Cross-Entropy loss with softmax
         arguments:
             y_true (np.array): one-hot encoded truth, shape (N, C)
-            y_pred (np.array): predicted probabilities, shape (N, C)
+            y_pred (np.array): predicted logits, shape (N, C)
         return:
             (np.array): gradient, same shape as y_pred
         """
-        y_pred = np.clip(y_pred, 1e-12, 1.0 - 1e-12)
+        y_prob = CrossEntropy._softmax(y_pred)
         N = y_true.shape[0]
-        return (y_pred - y_true) / N
+        return (y_prob - y_true) / N
 

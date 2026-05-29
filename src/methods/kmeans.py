@@ -125,9 +125,19 @@ class KMeans(object):
             cluster_center_label: array of shape (K,), the labels of the cluster centers
         """
         cluster_center_label = np.zeros(self.K, dtype=int)
+        # Precompute global majority label to use for empty clusters
+        if true_labels.size == 0:
+            global_mode = 0
+        else:
+            global_mode = np.bincount(true_labels.astype(int)).argmax()
+
         for k in range(self.K):
             labels_in_cluster = true_labels[cluster_assignments == k]
-            cluster_center_label[k] = np.bincount(labels_in_cluster.astype(int)).argmax()
+            if labels_in_cluster.size == 0:
+                cluster_center_label[k] = global_mode
+            else:
+                cluster_center_label[k] = np.bincount(labels_in_cluster.astype(int)).argmax()
+
         return cluster_center_label
 
     def predict_with_centers(self, data, centers, cluster_center_label):

@@ -98,7 +98,7 @@ class MLP:
         # Update parameters
         for i in range(1, self.n_layers):
 
-            dw = np.dot(z[i - 1].T, deltas[i]) / y_true.shape[0]
+            dw = np.dot(z[i - 1].T, deltas[i])
 
             self.update_w_b(i, dw, deltas[i])
 
@@ -111,7 +111,7 @@ class MLP:
         :param delta: (array) Delta error.
         """
 
-        db = np.mean(delta, axis=0, keepdims=True)
+        db = np.sum(delta, axis=0, keepdims=True)
 
         self.weights[index] -= self.learning_rate * dw
 
@@ -134,8 +134,11 @@ class MLP:
         for epoch in range(epochs):
 
             # Uncomment to print the current training epoch
-            print(f"Epoch {epoch + 1}/{epochs}")
-
+            # if (epoch + 1) % 1000 == 0 :
+            # if (epoch + 1) == epochs : 
+                # print(f"Epoch {epoch + 1}/{epochs}")
+                # print("--0==0--")
+                
             indices = np.random.permutation(n_samples)
 
             x_shuffled = x[indices]
